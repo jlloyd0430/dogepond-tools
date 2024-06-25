@@ -7,7 +7,7 @@ require('dotenv').config();
 // Create a new Discord client instance
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-// Define the /snapshot and /stats commands
+// Define the /snapshot, /stats, and /scrape commands
 const commands = [
     new SlashCommandBuilder()
         .setName('snapshot')
@@ -19,6 +19,13 @@ const commands = [
     new SlashCommandBuilder()
         .setName('stats')
         .setDescription('Get statistics of the collection')
+        .addStringOption(option =>
+            option.setName('slug')
+                .setDescription('The slug of the collection')
+                .setRequired(true)),
+    new SlashCommandBuilder()
+        .setName('scrape')
+        .setDescription('Scrape all inscription IDs from a collection')
         .addStringOption(option =>
             option.setName('slug')
                 .setDescription('The slug of the collection')
@@ -167,6 +174,63 @@ client.on('interactionCreate', async interaction => {
         } catch (error) {
             console.error('Error fetching stats:', error);
             await interaction.editReply('An error occurred while fetching the stats.');
+        }
+    }
+
+    if (commandName === 'scrape') {
+        const slug = interaction.options.getString('slug');
+
+        await interaction.deferReply();
+
+        try {
+            console.log(`Fetching inscriptions for slug: ${slug}`);
+            const response = await axios.get(`https://dogeturbo.ordinalswallet.com/collection/${slug}/inscriptions`);
+            const data = response.data;
+
+            console.log('API response:', data);
+
+            if (!Array.isArray(data)) {
+                console.error('Unexpected API response format:', data);
+                await interaction.editReply('Unexpected API response format.');
+                return;
+            }
+
+            // Extract only the IDs
+            const ids = data.map(item => item.id);
+
+            // Convert to CSV
+            const records = ids.map(id => ({ InscriptionID: id }));
+
+            // Create CSV file
+            const filePath = `./inscriptions_${slug}.csv`;
+            stringify(records, { header: true, columns: ['InscriptionID'] }, (err, output) => {
+                if (err) {
+                    console.error('Error generating CSV:', err);
+                    interaction.editReply('An error occurred while generating the CSV file.');
+                    return;
+                }
+
+                fs.writeFile(filePath, output, async (err) => {
+                    if (err) {
+                        console.error('Error writing CSV file:', err);
+                        await interaction.editReply('An error occurred while writing the CSV file.');
+                        return;
+                    }
+
+                    const file = new AttachmentBuilder(filePath);
+                    await interaction.editReply({ content: 'Inscriptions in the collection:', files: [file] });
+
+                    // Clean up the file after sending
+                    fs.unlink(filePath, (err) => {
+                        if (err) {
+                            console.error('Error deleting CSV file:', err);
+                        }
+                    });
+                });
+            });
+        } catch (error) {
+            console.error('Error fetching inscriptions:', error);
+            await interaction.editReply('An error occurred while fetching the inscriptions.');
         }
     }
 });
