@@ -32,10 +32,10 @@ const commands = [
                 .setRequired(true)),
     new SlashCommandBuilder()
         .setName('trendingnft')
-        .setDescription('Get the top 24-hour trending NFT collections'),
+        .setDescription('Get the top 10 trending NFT collections by 24-hour volume'),
     new SlashCommandBuilder()
         .setName('trendingtoken')
-        .setDescription('Get the top 24-hour trending tokens'),
+        .setDescription('Get the top 10 trending tokens by 24-hour volume'),
 ];
 
 client.once('ready', async () => {
@@ -244,27 +244,11 @@ client.on('interactionCreate', async interaction => {
         await interaction.deferReply();
 
         try {
-            console.log(`Fetching top 24-hour trending NFT collections`);
-            const response = await axios.get(`https://api.doggy.market/nfts/trending?offset=0&limit=10&sortBy=volume24h&sortOrder=desc`);
-            const data = response.data;
+            console.log(`Fetching top 10 trending NFT collections`);
+            const response = await axios.get('https://api.doggy.market/nfts/trending?offset=0&limit=10&sortBy=volume24h&sortOrder=desc');
+            const projects = response.data.slice(0, 10); // Get top 10 projects by 24-hour volume
 
-            console.log('API response:', data);
-
-            if (!Array.isArray(data)) {
-                console.error('Unexpected API response format:', data);
-                await interaction.editReply('Unexpected API response format.');
-                return;
-            }
-
-            const embeds = data.map(collection => new MessageEmbed()
-                .setTitle(`Collection: ${collection.collection.name}`)
-                .setDescription(collection.collection.description)
-                .setImage(collection.collection.image)
-                .addFields(
-                    { name: 'Volume (24h)', value: `${collection.volume24h}`, inline: true },
-                    { name: 'Trades (24h)', value: `${collection.trades24h}`, inline: true },
-                    { name: 'Listed', value: `${collection.listed}`, inline: true },
-                ));
+            const embeds = projects.map(project => formatProjectInfo(project));
 
             await interaction.editReply({ content: '**Top 24-hour Trending NFT Collections:**', embeds: embeds });
         } catch (error) {
@@ -277,27 +261,11 @@ client.on('interactionCreate', async interaction => {
         await interaction.deferReply();
 
         try {
-            console.log(`Fetching top 24-hour trending tokens`);
-            const response = await axios.get(`https://api.doggy.market/token/trending?period=all&offset=0&limit=10&sortBy=volume24h&sortOrder=desc`);
-            const data = response.data;
+            console.log(`Fetching top 10 trending tokens`);
+            const response = await axios.get('https://api.doggy.market/token/trending?period=all&offset=0&limit=10&sortBy=volume24h&sortOrder=desc');
+            const tokens = response.data.data.slice(0, 10); // Get top 10 tokens by 24-hour volume
 
-            console.log('API response:', data);
-
-            if (!Array.isArray(data.data)) {
-                console.error('Unexpected API response format:', data);
-                await interaction.editReply('Unexpected API response format.');
-                return;
-            }
-
-            const embeds = data.data.map(token => new MessageEmbed()
-                .setTitle(`Token: ${token.tick}`)
-                .setImage(token.pic)
-                .addFields(
-                    { name: 'Volume (24h)', value: `${token.volume24h}`, inline: true },
-                    { name: 'Trades (24h)', value: `${token.trades24h}`, inline: true },
-                    { name: 'Listings', value: `${token.listings}`, inline: true },
-                    { name: 'Market Cap', value: `${token.marketcap}`, inline: true },
-                ));
+            const embeds = tokens.map(token => formatTokenInfo(token));
 
             await interaction.editReply({ content: '**Top 24-hour Trending Tokens:**', embeds: embeds });
         } catch (error) {
@@ -306,5 +274,50 @@ client.on('interactionCreate', async interaction => {
         }
     }
 });
+
+async function formatProjectInfo(project) {
+    const imageUrl = await verifyImageUrl(project.collection.image);
+    return new MessageEmbed()
+        .setTitle(`Collection: ${project.collection.name}`)
+        .setDescription(project.collection.description)
+        .setImage(imageUrl)
+        .addFields(
+            { name: 'Volume (24h)', value: `${project.volume24h}`, inline: true },
+            { name: 'Trades (24h)', value: `${project.trades24h}`, inline: true },
+            { name: 'Listed', value: `${project.listed}`, inline: true },
+        );
+}
+
+async function formatTokenInfo(token) {
+    const imageUrl = await verifyImageUrl(token.pic);
+    return new MessageEmbed()
+        .setTitle(`Token: ${token.tick}`)
+        .setImage(imageUrl)
+        .addFields(
+            { name: 'Volume (24h)', value: `${token.volume24h}`, inline: true },
+            { name: 'Trades (24h)', value: `${token.trades24h}`, inline: true },
+            { name: 'Listings', value: `${token.listings}`, inline: true },
+            { name: 'Market Cap', value: `${token.marketcap}`, inline: true },
+        );
+}
+
+async function verifyImageUrl(url) {
+    if (!url) return 'https://via.placeholder.com/150';
+
+    try {
+        await axios.head(url);
+        return url;
+    } catch (error) {
+        // If the initial URL check fails, try the alternative URL pattern
+        const alternateUrl = url.replace('https://doggy.market/drc-20/', 'https://api.doggy.market/static/drc-20/');
+        try {
+            await axios.head(alternateUrl);
+            return alternateUrl;
+        } catch (alternateError) {
+            // If both URLs fail, return a placeholder
+            return 'https://via.placeholder.com/150';
+        }
+    }
+}
 
 client.login(process.env.DISCORD_TOKEN);
