@@ -15,7 +15,15 @@ const commands = [
         .addStringOption(option =>
             option.setName('slug')
                 .setDescription('The slug of the collection')
-                .setRequired(true)),
+                .setRequired(true))
+        .addStringOption(option =>
+            option.setName('api')
+                .setDescription('The API to use (OW or DM)')
+                .setRequired(true)
+                .addChoices(
+                    { name: 'Ordinals Wallet', value: 'OW' },
+                    { name: 'Doggy Market', value: 'DM' }
+                )),
     new SlashCommandBuilder()
         .setName('stats')
         .setDescription('Get statistics of the collection')
@@ -76,39 +84,52 @@ client.on('interactionCreate', async interaction => {
 
     if (commandName === 'snapshot') {
         const slug = interaction.options.getString('slug');
+        const api = interaction.options.getString('api');
 
         await interaction.deferReply();
 
         try {
-            console.log(`Fetching snapshot for slug: ${slug}`);
-            const response = await axios.get(`https://dogeturbo.ordinalswallet.com/collection/${slug}/snapshot`);
+            let url;
+            if (api === 'OW') {
+                url = `https://dogeturbo.ordinalswallet.com/collection/${slug}/inscriptions`;
+            } else if (api === 'DM') {
+                url = `https://api.doggy.market/nfts/${slug}`;
+            }
+
+            console.log(`Fetching snapshot for slug: ${slug} using ${api} API`);
+            const response = await axios.get(url);
             const data = response.data;
 
             console.log('API response:', data);
 
-            if (typeof data !== 'string') {
-                console.error('Unexpected API response format:', data);
-                await interaction.editReply('Unexpected API response format.');
-                return;
+            let inscriptions;
+            if (api === 'OW') {
+                if (!Array.isArray(data)) {
+                    console.error('Unexpected API response format:', data);
+                    await interaction.editReply('Unexpected API response format.');
+                    return;
+                }
+
+                inscriptions = data.map(item => ({ inscriptionId: item.id, inscriptionNumber: item.number }));
+            } else if (api === 'DM') {
+                if (!Array.isArray(data.recentlyListed)) {
+                    console.error('Unexpected API response format:', data);
+                    await interaction.editReply('Unexpected API response format.');
+                    return;
+                }
+
+                inscriptions = data.recentlyListed.map(item => ({ inscriptionId: item.inscriptionId, inscriptionNumber: item.inscriptionNumber }));
             }
 
-            const wallets = data.split('\n').filter(Boolean);
-
-            if (wallets.length === 0) {
-                await interaction.editReply('No wallets found for this collection.');
+            if (inscriptions.length === 0) {
+                await interaction.editReply('No inscriptions found for this collection.');
             } else {
-                // Count occurrences of each wallet
-                const walletCounts = wallets.reduce((acc, wallet) => {
-                    acc[wallet] = (acc[wallet] || 0) + 1;
-                    return acc;
-                }, {});
-
                 // Convert to CSV
-                const records = Object.entries(walletCounts).map(([address, count]) => ({ Address: address, Count: count }));
+                const records = inscriptions.map(inscription => ({ InscriptionID: inscription.inscriptionId, InscriptionNumber: inscription.inscriptionNumber }));
 
                 // Create CSV file
-                const filePath = `./wallets_${slug}.csv`;
-                stringify(records, { header: true, columns: ['Address', 'Count'] }, (err, output) => {
+                const filePath = `./inscriptions_${slug}.csv`;
+                stringify(records, { header: true, columns: ['InscriptionID', 'InscriptionNumber'] }, (err, output) => {
                     if (err) {
                         console.error('Error generating CSV:', err);
                         interaction.editReply('An error occurred while generating the CSV file.');
@@ -123,7 +144,7 @@ client.on('interactionCreate', async interaction => {
                         }
 
                         const file = new AttachmentBuilder(filePath);
-                        await interaction.editReply({ content: 'Wallets holding inscriptions in the collection:', files: [file] });
+                        await interaction.editReply({ content: 'Inscriptions in the collection:', files: [file] });
 
                         // Clean up the file after sending
                         fs.unlink(filePath, (err) => {
