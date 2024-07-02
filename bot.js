@@ -193,39 +193,31 @@ client.on('interactionCreate', async interaction => {
 
         try {
             let url;
+            let allInscriptions = [];
             if (api === 'OW') {
                 url = `https://dogeturbo.ordinalswallet.com/collection/${slug}/inscriptions`;
+                const response = await axios.get(url);
+                allInscriptions = response.data.map(item => item.id);
             } else if (api === 'DM') {
                 url = `https://api.doggy.market/nfts/${slug}`;
-            }
+                let page = 1;
+                let hasMore = true;
 
-            console.log(`Fetching inscriptions for slug: ${slug} using ${api} API`);
-            const response = await axios.get(url);
-            const data = response.data;
+                while (hasMore) {
+                    const response = await axios.get(`${url}?page=${page}`);
+                    const data = response.data;
 
-            console.log('API response:', data);
-
-            let ids;
-            if (api === 'OW') {
-                if (!Array.isArray(data)) {
-                    console.error('Unexpected API response format:', data);
-                    await interaction.editReply('Unexpected API response format.');
-                    return;
+                    if (!Array.isArray(data.recentlyListed) || data.recentlyListed.length === 0) {
+                        hasMore = false;
+                    } else {
+                        allInscriptions.push(...data.recentlyListed.map(item => item.inscriptionId));
+                        page += 1;
+                    }
                 }
-
-                ids = data.map(item => item.id);
-            } else if (api === 'DM') {
-                if (!Array.isArray(data.recentlyListed)) {
-                    console.error('Unexpected API response format:', data);
-                    await interaction.editReply('Unexpected API response format.');
-                    return;
-                }
-
-                ids = data.recentlyListed.map(item => item.inscriptionId);
             }
 
             // Convert to CSV
-            const records = ids.map(id => ({ InscriptionID: id }));
+            const records = allInscriptions.map(id => ({ InscriptionID: id }));
 
             // Create CSV file
             const filePath = `./inscriptions_${slug}.csv`;
