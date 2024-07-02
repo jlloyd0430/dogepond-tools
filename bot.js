@@ -245,7 +245,7 @@ client.on('interactionCreate', async interaction => {
 
         try {
             console.log(`Fetching top 24-hour trending NFT collections`);
-            const response = await axios.get(`https://api.doggy.market/nfts/trending?offset=0&limit=100&sortBy=volume24h&sortOrder=desc`);
+            const response = await axios.get(`https://api.doggy.market/nfts/trending?offset=0&limit=10&sortBy=volume24h&sortOrder=desc`);
             const data = response.data;
 
             console.log('API response:', data);
@@ -278,7 +278,7 @@ client.on('interactionCreate', async interaction => {
 
         try {
             console.log(`Fetching top 24-hour trending tokens`);
-            const response = await axios.get(`https://api.doggy.market/token/trending?period=all&offset=0&limit=100&sortBy=volume24h&sortOrder=desc`);
+            const response = await axios.get(`https://api.doggy.market/token/trending?period=all&offset=0&limit=10&sortBy=volume24h&sortOrder=desc`);
             const data = response.data;
 
             console.log('API response:', data);
