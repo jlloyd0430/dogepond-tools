@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, AttachmentBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, AttachmentBuilder, MessageEmbed } = require('discord.js');
 const axios = require('axios');
 const fs = require('fs');
 const { stringify } = require('csv-stringify');
@@ -256,16 +256,17 @@ client.on('interactionCreate', async interaction => {
                 return;
             }
 
-            const topCollections = data.map(collection => `
-**Collection Name:** ${collection.collection.name}
-- **Volume (24h):** ${collection.volume24h}
-- **Trades (24h):** ${collection.trades24h}
-- **Listed:** ${collection.listed}
-- **Image:** ${collection.collection.image}
-- **Description:** ${collection.collection.description}
-            `).join('\n\n');
+            const embeds = data.map(collection => new MessageEmbed()
+                .setTitle(`Collection: ${collection.collection.name}`)
+                .setDescription(collection.collection.description)
+                .setImage(collection.collection.image)
+                .addFields(
+                    { name: 'Volume (24h)', value: `${collection.volume24h}`, inline: true },
+                    { name: 'Trades (24h)', value: `${collection.trades24h}`, inline: true },
+                    { name: 'Listed', value: `${collection.listed}`, inline: true },
+                ));
 
-            await interaction.editReply(`**Top 24-hour Trending NFT Collections:**\n${topCollections}`);
+            await interaction.editReply({ content: '**Top 24-hour Trending NFT Collections:**', embeds: embeds });
         } catch (error) {
             console.error('Error fetching trending NFT collections:', error);
             await interaction.editReply('An error occurred while fetching the trending NFT collections.');
@@ -288,16 +289,17 @@ client.on('interactionCreate', async interaction => {
                 return;
             }
 
-            const topTokens = data.data.map(token => `
-**Token Ticker:** ${token.tick}
-- **Volume (24h):** ${token.volume24h}
-- **Trades (24h):** ${token.trades24h}
-- **Listings:** ${token.listings}
-- **Image:** ${token.pic}
-- **Market Cap:** ${token.marketcap}
-            `).join('\n\n');
+            const embeds = data.data.map(token => new MessageEmbed()
+                .setTitle(`Token: ${token.tick}`)
+                .setImage(token.pic)
+                .addFields(
+                    { name: 'Volume (24h)', value: `${token.volume24h}`, inline: true },
+                    { name: 'Trades (24h)', value: `${token.trades24h}`, inline: true },
+                    { name: 'Listings', value: `${token.listings}`, inline: true },
+                    { name: 'Market Cap', value: `${token.marketcap}`, inline: true },
+                ));
 
-            await interaction.editReply(`**Top 24-hour Trending Tokens:**\n${topTokens}`);
+            await interaction.editReply({ content: '**Top 24-hour Trending Tokens:**', embeds: embeds });
         } catch (error) {
             console.error('Error fetching trending tokens:', error);
             await interaction.editReply('An error occurred while fetching the trending tokens.');
