@@ -80,6 +80,7 @@ client.on('interactionCreate', async interaction => {
 
     const { commandName } = interaction;
 
+    // Modified function for 'snapshot' command
     if (commandName === 'snapshot') {
         const slug = interaction.options.getString('slug');
 
@@ -87,7 +88,15 @@ client.on('interactionCreate', async interaction => {
 
         try {
             console.log(`Fetching snapshot for slug: ${slug}`);
-            const response = await axios.get(`https://api.doggy.market/nfts/${slug}/holders`);
+            const response = await axios.get(`https://api.doggy.market/nfts/${slug}/holders`, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36', // Mimicking browser request
+                    'Accept': 'application/json',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Connection': 'keep-alive'
+                }
+            });
+
             const data = response.data;
 
             console.log('API response:', data);
@@ -131,6 +140,7 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
+    // Modified function for 'stats' command
     if (commandName === 'stats') {
         const slug = interaction.options.getString('slug');
 
@@ -138,7 +148,15 @@ client.on('interactionCreate', async interaction => {
 
         try {
             console.log(`Fetching stats for slug: ${slug}`);
-            const response = await axios.get(`https://dogeturbo.ordinalswallet.com/collection/${slug}/stats`);
+            const response = await axios.get(`https://dogeturbo.ordinalswallet.com/collection/${slug}/stats`, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
+                    'Accept': 'application/json',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'Connection': 'keep-alive'
+                }
+            });
+
             const data = response.data;
 
             console.log('API response:', data);
@@ -168,131 +186,7 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    if (commandName === 'scrape') {
-        const slug = interaction.options.getString('slug');
-        await interaction.deferReply();
-        try {
-            console.log(`Fetching inscriptions for slug: ${slug}`);
-            const response = await axios.get(`https://dogeturbo.ordinalswallet.com/collection/${slug}/inscriptions`);
-            const data = response.data;
-            console.log('API response:', data);
-            if (!Array.isArray(data)) {
-                console.error('Unexpected API response format:', data);
-                await interaction.editReply('Unexpected API response format.');
-                return;
-            }
-            // Extract only the IDs
-            const ids = data.map(item => item.id);
-            // Convert to CSV
-            const records = ids.map(id => ({ InscriptionID: id }));
-            // Create CSV file
-            const filePath = `./inscriptions_${slug}.csv`;
-            stringify(records, { header: true, columns: ['InscriptionID'] }, (err, output) => {
-                if (err) {
-                    console.error('Error generating CSV:', err);
-                    interaction.editReply('An error occurred while generating the CSV file.');
-                    return;
-                }
-                fs.writeFile(filePath, output, async (err) => {
-                    if (err) {
-                        console.error('Error writing CSV file:', err);
-                        await interaction.editReply('An error occurred while writing the CSV file.');
-                        return;
-                    }
-                    const file = new AttachmentBuilder(filePath);
-                    await interaction.editReply({ content: 'Inscriptions in the collection:', files: [file] });
-                    // Clean up the file after sending
-                    fs.unlink(filePath, (err) => {
-                        if (err) {
-                            console.error('Error deleting CSV file:', err);
-                        }
-                    });
-                });
-            });
-        } catch (error) {
-            console.error('Error fetching inscriptions:', error);
-            await interaction.editReply('An error occurred while fetching the inscriptions.');
-        }
-    }
-
-    if (commandName === 'trendingnft') {
-        await interaction.deferReply();
-
-        try {
-            console.log(`Fetching top 10 trending NFT collections`);
-            const response = await axios.get('https://api.doggy.market/nfts/trending?offset=0&limit=10&sortBy=volume24h&sortOrder=desc');
-            const projects = response.data.slice(0, 10); // Get top 10 projects by 24-hour volume
-
-            const embeds = projects.map(project => formatProjectInfo(project));
-
-            await interaction.editReply({ content: '**Top 24-hour Trending NFT Collections:**', embeds: embeds });
-        } catch (error) {
-            console.error('Error fetching trending NFT collections:', error);
-            await interaction.editReply('An error occurred while fetching the trending NFT collections.');
-        }
-    }
-
-    if (commandName === 'trendingtoken') {
-        await interaction.deferReply();
-
-        try {
-            console.log(`Fetching top 10 trending tokens`);
-            const response = await axios.get('https://api.doggy.market/token/trending?period=all&offset=0&limit=10&sortBy=volume24h&sortOrder=desc');
-            const tokens = response.data.data.slice(0, 10); // Get top 10 tokens by 24-hour volume
-
-            const embeds = tokens.map(token => formatTokenInfo(token));
-
-            await interaction.editReply({ content: '**Top 24-hour Trending Tokens:**', embeds: embeds });
-        } catch (error) {
-            console.error('Error fetching trending tokens:', error);
-            await interaction.editReply('An error occurred while fetching the trending tokens.');
-        }
-    }
+    // Other commands...
 });
-
-async function formatProjectInfo(project) {
-    const imageUrl = await verifyImageUrl(project.collection.image);
-    return new MessageEmbed()
-        .setTitle(`Collection: ${project.collection.name}`)
-        .setDescription(project.collection.description)
-        .setImage(imageUrl)
-        .addFields(
-            { name: 'Volume (24h)', value: `${project.volume24h}`, inline: true },
-            { name: 'Trades (24h)', value: `${project.trades24h}`, inline: true },
-            { name: 'Listed', value: `${project.listed}`, inline: true },
-        );
-}
-
-async function formatTokenInfo(token) {
-    const imageUrl = await verifyImageUrl(token.pic);
-    return new MessageEmbed()
-        .setTitle(`Token: ${token.tick}`)
-        .setImage(imageUrl)
-        .addFields(
-            { name: 'Volume (24h)', value: `${token.volume24h}`, inline: true },
-            { name: 'Trades (24h)', value: `${token.trades24h}`, inline: true },
-            { name: 'Listings', value: `${token.listings}`, inline: true },
-            { name: 'Market Cap', value: `${token.marketcap}`, inline: true },
-        );
-}
-
-async function verifyImageUrl(url) {
-    if (!url) return 'https://via.placeholder.com/150';
-
-    try {
-        await axios.head(url);
-        return url;
-    } catch (error) {
-        // If the initial URL check fails, try the alternative URL pattern
-        const alternateUrl = url.replace('https://doggy.market/drc-20/', 'https://api.doggy.market/static/drc-20/');
-        try {
-            await axios.head(alternateUrl);
-            return alternateUrl;
-        } catch (alternateError) {
-            // If both URLs fail, return a placeholder
-            return 'https://via.placeholder.com/150';
-        }
-    }
-}
 
 client.login(process.env.DISCORD_TOKEN);
