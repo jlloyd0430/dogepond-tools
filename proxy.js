@@ -1,18 +1,22 @@
-const express = require('express');
-const request = require('request');
-const app = express();
+const axios = require('axios');
 
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', '*');
-  next();
-});
+module.exports = async (req, res) => {
+  const slug = req.params.slug || "default-slug";  // Replace "default-slug" with an appropriate fallback
 
-app.use('/', (req, res) => {
-  const url = 'https://api.doggy.market' + req.url;  // Forward requests to Doggy API
-  req.pipe(request({ qs: req.query, uri: url })).pipe(res);
-});
+  try {
+    // Making the request directly to the Doggy Market API
+    const response = await axios.get(`https://api.doggy.market/nfts/${slug}/holders`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36', // Mimicking browser request
+        'Accept': 'application/json',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive'
+      }
+    });
 
-app.listen(8080, () => {
-  console.log('CORS proxy running on port 8080');
-});
+    res.status(200).json(response.data);
+  } catch (error) {
+    console.error('Error fetching NFTs snapshot', error);
+    res.status(500).json({ error: 'Failed to fetch snapshot. Please try again later.' });
+  }
+};
