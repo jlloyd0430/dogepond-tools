@@ -80,7 +80,6 @@ client.on('interactionCreate', async interaction => {
 
     const { commandName } = interaction;
 
-    // Modified function for 'snapshot' command
     if (commandName === 'snapshot') {
         const slug = interaction.options.getString('slug');
 
@@ -88,9 +87,9 @@ client.on('interactionCreate', async interaction => {
 
         try {
             console.log(`Fetching snapshot for slug: ${slug}`);
-            const response = await axios.get(`https://api.doggy.market/nfts/${slug}/holders`, {
+            const response = await axios.get(`http://localhost:8080/nfts/${slug}/holders`, { // Using your local proxy
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36', // Mimicking browser request
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
                     'Accept': 'application/json',
                     'Accept-Encoding': 'gzip, deflate, br',
                     'Connection': 'keep-alive'
@@ -140,7 +139,6 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // Modified function for 'stats' command
     if (commandName === 'stats') {
         const slug = interaction.options.getString('slug');
 
@@ -148,7 +146,7 @@ client.on('interactionCreate', async interaction => {
 
         try {
             console.log(`Fetching stats for slug: ${slug}`);
-            const response = await axios.get(`https://dogeturbo.ordinalswallet.com/collection/${slug}/stats`, {
+            const response = await axios.get(`http://localhost:8080/collection/${slug}/stats`, { // Using your local proxy
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
                     'Accept': 'application/json',
@@ -186,7 +184,7 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // Other commands...
+    // Other commands (scrape, trendingnft, trendingtoken)
 });
 
 client.login(process.env.DISCORD_TOKEN);
